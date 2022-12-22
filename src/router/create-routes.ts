@@ -1,4 +1,4 @@
-import { createBrowserRouter, generatePath, RouteObject } from "react-router-dom";
+import { createBrowserRouter, generatePath, RouteObject, useParams } from "react-router-dom";
 import { Narrow } from "ts-toolbelt/out/Function/Narrow";
 
 type Route = RouteObject & { name: Readonly<string> };
@@ -21,7 +21,7 @@ export namespace Router {
   export function link<T extends Narrow<Route[]>>(
     _routes: T
   ): <Path extends ExtractPaths<T>, Params extends UrlParams<Path>>(
-    ...params: Params extends null ? [path: Path] : [path: Path, params: Params]
+    ...args: Params extends null ? [path: Path] : [path: Path, params: Params]
   ) => string;
 
   export function link<T extends Narrow<Route[]>>() {
@@ -29,8 +29,16 @@ export namespace Router {
       params === undefined ? path : generatePath(path, params as any);
   }
 
+  export const createHook = <T extends Narrow<Route[]>>(_routes: T) => {
+    return function useRouteParams<Path extends ExtractPaths<T>>(_path: Path) {
+      const params = useParams();
+      return params as UrlParams<Path>;
+    };
+  };
+
   export const create = <T extends Route[]>(routes: Narrow<T>) => ({
     link: link(routes),
+    useRouteParams: createHook(routes),
     config: createBrowserRouter(routes as any),
   });
 }

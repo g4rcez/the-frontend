@@ -1,6 +1,7 @@
 import { useState } from "react";
 import reactLogo from "./assets/react.svg";
 import "./App.css";
+import { router } from "./router/routes";
 
 type Props = {
   name: string;
@@ -8,6 +9,8 @@ type Props = {
 
 function App(props: Props) {
   const [count, setCount] = useState(0);
+  const params = router.useRouteParams("/users/:id");
+  console.log(params);
 
   return (
     <div className="App">
