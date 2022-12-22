@@ -11,8 +11,8 @@ const router = Router.create([
   { path: "/users/:id", name: "users", element: <App name="users" /> },
 ]);
 
-router.link({ path: "/users/:id", params: { id: "dsadas" } });
-router.link({ path: "/path" });
+router.link("/path");
+router.link("/users/:id", { id: "dsadas" });
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

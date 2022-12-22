@@ -21,11 +21,12 @@ export namespace Router {
   export function link<T extends Narrow<Route[]>>(
     _routes: T
   ): <Path extends ExtractPaths<T>, Params extends UrlParams<Path>>(
-    p: Params extends null ? { path: Path } : { path: Path; params: Params }
+    ...params: Params extends null ? [path: Path] : [path: Path, params: Params]
   ) => string;
 
   export function link<T extends Narrow<Route[]>>() {
-    return (path: any, params?: any) => generatePath(path, params);
+    return <Path extends ExtractPaths<T>, Params extends UrlParams<Path>>(path: Path, params?: Params) =>
+      params === undefined ? path : generatePath(path, params as any);
   }
 
   export const create = <T extends Route[]>(routes: Narrow<T>) => ({
