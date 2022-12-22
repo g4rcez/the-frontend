@@ -18,15 +18,10 @@ export namespace Router {
     ? { [k in Param]: string }
     : null;
 
-  export function link<T extends Narrow<Route[]>>(
-    _routes: T
-  ): <Path extends ExtractPaths<T>, Params extends UrlParams<Path>>(
-    ...args: Params extends null ? [path: Path] : [path: Path, params: Params]
-  ) => string;
-
-  export function link<T extends Narrow<Route[]>>() {
-    return <Path extends ExtractPaths<T>, Params extends UrlParams<Path>>(path: Path, params?: Params) =>
-      params === undefined ? path : generatePath(path, params as any);
+  export function link<T extends Narrow<Route[]>>(_routes: T) {
+    return <Path extends ExtractPaths<T>, Params extends UrlParams<Path>>(
+      ...[path, params]: Params extends null ? [path: Path] : [path: Path, params: Params]
+    ) => (params === undefined ? path : generatePath(path, params as any));
   }
 
   export const createHook = <T extends Narrow<Route[]>>(_routes: T) => {
