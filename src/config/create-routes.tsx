@@ -1,34 +1,13 @@
-import { createBrowserRouter, generatePath, Outlet, RouteObject, ScrollRestoration, useParams } from "react-router-dom";
+import { createBrowserRouter, generatePath, Outlet, redirect, RouteObject, ScrollRestoration, useParams } from "react-router-dom";
 import { Narrow } from "ts-toolbelt/out/Function/Narrow";
 import React, { ComponentType, FC, Fragment, lazy, PropsWithChildren } from "react";
 
-const LayoutImpl = () => {
-  return (
-    <Fragment>
-      <Outlet />
-      <ScrollRestoration />
-    </Fragment>
-  );
-};
-
 export namespace Router {
-  export type Params<Key extends string = string> = {
-    readonly [key in Key]: string | undefined;
+  export type QueryString<Key extends {} = {}> = {
+    readonly [key in keyof Key]: string | undefined;
   };
 
-  type LoaderArgs = {
-    request: Request;
-    params: Params;
-    context?: any;
-  };
-
-  type Route = Omit<RouteObject, "element"> & { name: Readonly<string>; controller: () => Promise<RouteController<any>> };
-
-  type ExtractPaths<T extends Narrow<Route[]>> = NonNullable<
-    {
-      [K in T[number]["name"]]: T[number]["path"];
-    }["path"]
-  >;
+  export type FetchArgs = { request: Request; params: QueryString<Record<string, string>>; context?: any };
 
   type UrlParams<T extends string> = string extends T
     ? Record<string, string>
@@ -38,46 +17,64 @@ export namespace Router {
     ? { [k in Param]: string }
     : null;
 
+  export type Component<T, LoaderProps extends {} = {}> = ComponentType & {
+    loader?: (args: FetchArgs, props: LoaderProps) => Promise<Response | any>;
+    action?: (args: FetchArgs, props: LoaderProps) => Promise<Response | any>;
+  };
+
+  type Route = Omit<RouteObject, "element"> & {
+    name: Readonly<string>;
+    controller: () => Promise<{ readonly default: Component<any> }>;
+  };
+
+  type ExtractPaths<T extends Narrow<Route[]>> = NonNullable<{ [K in T[number]["name"]]: T[number]["path"] }["path"]>;
+
   const link =
     <T extends Narrow<Route[]>>(_routes: T) =>
     <Path extends ExtractPaths<T>, Params extends UrlParams<Path>>(
       ...[path, params]: Params extends null ? [path: Path] : [path: Path, params: Params]
     ) =>
-      params === undefined ? path : generatePath(path, params as any);
+      params === undefined ? path : generatePath(path, params as never);
 
   const createHook =
     <T extends Narrow<Route[]>>(_routes: T) =>
     <Path extends ExtractPaths<T>>(_path: Path) =>
       useParams() as UrlParams<Path>;
 
-  export type RouteController<T, LoaderProps extends {} = {}> = ComponentType<T> & {
-    loader?: (args: LoaderArgs, props: LoaderProps) => Promise<Response> | Response | Promise<any> | any;
-  };
+  const createRouteFunction =
+    <Args extends FetchArgs, Props extends {}>(type: "loader" | "action", route: Narrow<Route>, props: Props) =>
+    async (args: Args) => {
+      const component: { default: Component<any> } = await route.controller();
+      const fn = component.default[type];
+      return fn ? fn(args, props) : null;
+    };
 
   export const create = <T extends Route[], Props extends {} = {}>(Layout: FC<PropsWithChildren>, NotFound: FC, routes: Narrow<T>, props: Props) => {
     return {
-      route: link(routes),
+      link: link(routes),
       useRouteParams: createHook(routes),
+      redirect: (path: `/${string}`) => {
+        return new Response("", { status: 302, headers: { Location: path } });
+      },
       config: createBrowserRouter([
         {
           path: "/",
           element: (
             <Layout>
-              <LayoutImpl />
+              <Fragment>
+                <Outlet />
+                <ScrollRestoration />
+              </Fragment>
             </Layout>
           ),
           children: routes
-            .map((X): RouteObject => {
-              const Component = lazy(X.controller as any);
+            .map((route): RouteObject => {
+              const Component = lazy(route.controller);
               return {
-                path: X.path,
-                index: X.path === "/",
+                path: route.path,
                 element: <Component />,
-                loader: async (args) => {
-                  let component: { default: RouteController<any> } = (await X.controller()) as any;
-                  let loader = component.default.loader;
-                  return loader ? loader(args, props) : null;
-                },
+                action: createRouteFunction("action", route, props),
+                loader: createRouteFunction("loader", route, props),
               };
             })
             .concat({ path: "*", element: <NotFound /> }),
