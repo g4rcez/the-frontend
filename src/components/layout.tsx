@@ -39,9 +39,9 @@ const alias: DictFn = { id: (t) => "Im_ID: " + t };
 export function Layout({ children }: PropsWithChildren) {
   const params = useParams();
   return (
-    <div>
+    <Fragment>
       <Breadcrumb Divider={">>"} params={params as any} path={useLocation().pathname} alias={alias} />
       {children}
-    </div>
+    </Fragment>
   );
 }

@@ -1,0 +1,33 @@
+{
+  "posts": [
+    {
+      "id": 1,
+      "title": "post1",
+      "author": "author"
+    },
+    {
+      "id": 2,
+      "title": [
+        "CHANGED"
+      ],
+      "author": [
+        "author"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "post3",
+      "author": "author"
+    },
+    {
+      "id": 4,
+      "title": "post4",
+      "author": "author"
+    },
+    {
+      "id": 5,
+      "title": "post5",
+      "author": "author"
+    }
+  ]
+}

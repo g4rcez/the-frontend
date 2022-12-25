@@ -1,13 +1,15 @@
-import { createBrowserRouter, generatePath, Outlet, redirect, RouteObject, ScrollRestoration, useParams } from "react-router-dom";
+import { createBrowserRouter, generatePath, Outlet, RouteObject, ScrollRestoration, useLoaderData, useParams } from "react-router-dom";
 import { Narrow } from "ts-toolbelt/out/Function/Narrow";
-import React, { ComponentType, FC, Fragment, lazy, PropsWithChildren } from "react";
+import React, { ComponentType, FC, Fragment, lazy, PropsWithChildren, ReactElement } from "react";
+import { Is } from "~/lib/is";
+import { Urls } from "~/lib/urls";
 
 export namespace Router {
-  export type QueryString<Key extends {} = {}> = {
-    readonly [key in keyof Key]: string | undefined;
-  };
+  export const useLoader = <T,>(): T => useLoaderData() as any;
 
-  export type FetchArgs = { request: Request; params: QueryString<Record<string, string>>; context?: any };
+  type Param = Record<string, string>;
+
+  export type FetchArgs<Params extends Param | null = {}> = { request: Request; params: Params; context?: any };
 
   type UrlParams<T extends string> = string extends T
     ? Record<string, string>
@@ -17,24 +19,38 @@ export namespace Router {
     ? { [k in Param]: string }
     : null;
 
-  export type Component<T, LoaderProps extends {} = {}> = ComponentType & {
-    loader?: (args: FetchArgs, props: LoaderProps) => Promise<Response | any>;
-    action?: (args: FetchArgs, props: LoaderProps) => Promise<Response | any>;
+  export type Component<T extends {} = {}, Route extends string = string, LoaderProps extends {} = {}> = ComponentType & {
+    loader?: <T extends Param>(args: FetchArgs<UrlParams<Route>>, props: LoaderProps) => Promise<Response | any>;
+    action?: <T extends Param>(args: FetchArgs<UrlParams<Route>>, props: LoaderProps) => Promise<Response | any>;
+    error?: FC;
   };
 
-  type Route = Omit<RouteObject, "element"> & {
+  type Route = {
     name: Readonly<string>;
+    path: Readonly<string>;
     controller: () => Promise<{ readonly default: Component<any> }>;
   };
 
-  type ExtractPaths<T extends Narrow<Route[]>> = NonNullable<{ [K in T[number]["name"]]: T[number]["path"] }["path"]>;
+  type ExtractPaths<T extends Narrow<Route[]>> = NonNullable<{ [K in keyof T[number]]: T[number]["path"] }["path"]>;
 
   const link =
     <T extends Narrow<Route[]>>(_routes: T) =>
-    <Path extends ExtractPaths<T>, Params extends UrlParams<Path>>(
-      ...[path, params]: Params extends null ? [path: Path] : [path: Path, params: Params]
-    ) =>
-      params === undefined ? path : generatePath(path, params as never);
+    <Path extends ExtractPaths<T>, QS extends Record<string, any>, Params extends UrlParams<Path>>(
+      ...[path, pieces]: Params extends null ? [path: Path, pieces?: { qs?: QS; params?: never }] : [path: Path, params: { qs?: QS; params: Params }]
+    ) => {
+      const url = pieces?.params === undefined ? path : generatePath(path, pieces.params as never);
+      return Urls.new(url, pieces?.qs);
+    };
+
+  const redirect =
+    <T extends Narrow<Route[]>>(_routes: T) =>
+    <Path extends ExtractPaths<T>, QS extends Record<string, any>, Params extends UrlParams<Path>>(
+      ...[path, pieces]: Params extends null ? [path: Path, pieces?: { qs?: QS; params?: never }] : [path: Path, params: { qs?: QS; params: Params }]
+    ) => {
+      const url = pieces?.params === undefined ? path : generatePath(path, pieces.params as never);
+      const location = Urls.new(url, pieces?.qs);
+      return new Response("", { status: 302, headers: { Location: location } });
+    };
 
   const createHook =
     <T extends Narrow<Route[]>>(_routes: T) =>
@@ -44,18 +60,28 @@ export namespace Router {
   const createRouteFunction =
     <Args extends FetchArgs, Props extends {}>(type: "loader" | "action", route: Narrow<Route>, props: Props) =>
     async (args: Args) => {
-      const component: { default: Component<any> } = await route.controller();
+      const component: { default: Component<any, string> } = await route.controller();
       const fn = component.default[type];
       return fn ? fn(args, props) : null;
     };
 
-  export const create = <T extends Route[], Props extends {} = {}>(Layout: FC<PropsWithChildren>, NotFound: FC, routes: Narrow<T>, props: Props) => {
+  type Methods = "get" | "post" | "patch" | "put" | "delete";
+
+  type ActionByMethod<Args extends FetchArgs, Props extends {}> = (args: Args, props: Props) => Promise<Response | any>;
+
+  export const create = <T extends Route[], Props extends {} = {}>(routes: Narrow<T>, props: Props, Layout: FC<PropsWithChildren>, NotFound: FC) => {
     return {
+      routes,
       link: link(routes),
+      redirect: redirect(routes),
       useRouteParams: createHook(routes),
-      redirect: (path: `/${string}`) => {
-        return new Response("", { status: 302, headers: { Location: path } });
-      },
+      actions:
+        <Args extends FetchArgs>(methods: Partial<Record<Methods, ActionByMethod<Args, Props>>>) =>
+        async (args: Args) => {
+          const method = args.request.method.toLowerCase();
+          if (Is.keyof(method, methods)) return methods[method]?.(args, props);
+          return null;
+        },
       config: createBrowserRouter([
         {
           path: "/",
@@ -70,9 +96,22 @@ export namespace Router {
           children: routes
             .map((route): RouteObject => {
               const Component = lazy(route.controller);
+              const Error = lazy(() =>
+                route.controller().then((x) => {
+                  const E = x.default.error ?? Fragment;
+                  return {
+                    default: () => (
+                      <Fragment>
+                        <E />
+                      </Fragment>
+                    ),
+                  };
+                })
+              );
               return {
                 path: route.path,
                 element: <Component />,
+                errorElement: <Error />,
                 action: createRouteFunction("action", route, props),
                 loader: createRouteFunction("loader", route, props),
               };
