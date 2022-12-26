@@ -7,7 +7,7 @@ const options = {
   parseBooleans: true,
 };
 
-const tralingPath = (str: string) => str.replace(/\/\//g, "/");
+const trailingPath = (str: string) => str.replace(/\/\//g, "/");
 
 const qs = {
   parse: <T extends {}>(q: string) => queryString.parse(q, options),
@@ -20,7 +20,6 @@ type Stringify<Path extends string, O extends { [k: string]: any }> = `?${ParseS
 
 export const Urls = {
   join: (baseURL: string, ...urls: string[]) =>
-    tralingPath(urls.reduce((acc, el) => acc.replace(/\/+$/, "") + "/" + el.replace(/^\/+/, ""), baseURL)),
-
+    trailingPath(urls.reduce((acc, el) => acc.replace(/\/+$/, "") + "/" + el.replace(/^\/+/, ""), baseURL)),
   new: <Path extends `/${string}` | string, QS extends {}>(path: Path, q?: QS): Stringify<Path, QS> => `${path}?${qs.str(q)}` as never,
 };

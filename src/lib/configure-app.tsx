@@ -1,12 +1,10 @@
-import { createBrowserRouter, generatePath, Outlet, RouteObject, ScrollRestoration, useLoaderData, useParams } from "react-router-dom";
+import { createBrowserRouter, generatePath, Outlet, RouteObject, ScrollRestoration, useParams } from "react-router-dom";
 import { Narrow } from "ts-toolbelt/out/Function/Narrow";
-import React, { ComponentType, FC, Fragment, lazy, PropsWithChildren, ReactElement } from "react";
+import React, { ComponentType, FC, Fragment, lazy, PropsWithChildren } from "react";
 import { Is } from "~/lib/is";
 import { Urls } from "~/lib/urls";
 
-export namespace Router {
-  export const useLoader = <T,>(): T => useLoaderData() as any;
-
+export namespace App {
   type Param = Record<string, string>;
 
   type FetchArgs<Params extends Param | null = {}> = { request: Request; params: Params; context?: any };
@@ -19,7 +17,7 @@ export namespace Router {
     ? { [k in Param]: string }
     : null;
 
-  type Component<T extends {} = {}, Route extends string | {} = {}, LoaderProps extends {} = {}> = ComponentType & {
+  export type Component<T extends {} = {}, Route extends string | {} = {}, LoaderProps extends {} = {}> = ComponentType & {
     loader?: <T extends Param>(args: FetchArgs<Route extends string ? UrlParams<Route> : any>, props: LoaderProps) => Promise<Response | any>;
     action?: <T extends Param>(args: FetchArgs<Route extends string ? UrlParams<Route> : any>, props: LoaderProps) => Promise<Response | any>;
     error?: FC;
@@ -33,22 +31,17 @@ export namespace Router {
 
   type ExtractPaths<T extends Narrow<Route[]>> = NonNullable<{ [K in keyof T[number]]: T[number]["path"] }["path"]>;
 
-  const logic =
-    <T extends Narrow<Route[]>, Fn extends (path: string, pieces: { qs?: object; params?: object }) => string>(_routes: T, fn: Fn) =>
-    <Path extends ExtractPaths<T>, QS extends Record<string, any>, Params extends UrlParams<Path>>(
-      ...[path, pieces]: Params extends null ? [path: Path, pieces?: { qs?: QS; params?: never }] : [path: Path, params: { qs?: QS; params: Params }]
-    ) =>
-      fn(path, pieces as any);
+  type QueryString = Record<string, string | null | undefined | number>;
 
-  const redirect =
-    <T extends Narrow<Route[]>>(_routes: T) =>
-    <Path extends ExtractPaths<T>, QS extends Record<string, any>, Params extends UrlParams<Path>>(
+  const logic =
+    <T extends Narrow<Route[]>, Fn extends (c: { qs?: QueryString; params?: object; path: ExtractPaths<T> }) => Response | string>(
+      _routes: T,
+      fn: Fn
+    ) =>
+    <Path extends ExtractPaths<T>, QS extends QueryString, Params extends UrlParams<Path>>(
       ...[path, pieces]: Params extends null ? [path: Path, pieces?: { qs?: QS; params?: never }] : [path: Path, params: { qs?: QS; params: Params }]
-    ) => {
-      const url = pieces?.params === undefined ? path : generatePath(path, pieces.params as never);
-      const location = Urls.new(url, pieces?.qs);
-      return new Response("", { status: 302, headers: { Location: location } });
-    };
+    ): ReturnType<Fn> =>
+      fn({ path, ...pieces }) as any;
 
   const createHook =
     <T extends Narrow<Route[]>>(_routes: T) =>
@@ -70,11 +63,15 @@ export namespace Router {
   export const create = <T extends Route[], Props extends {} = {}>(routes: Narrow<T>, props: Props, Layout: FC<PropsWithChildren>, NotFound: FC) => {
     return {
       routes,
-      link: logic(routes, ([path, pieces]) => {
-        const url = pieces?.params === undefined ? path : generatePath(path, pieces.params as never);
-        return Urls.new(url, pieces?.qs);
+      link: logic(routes, ({ params, path, qs }) => {
+        const url = params === undefined ? path : generatePath(path as string, params as never);
+        return Urls.new(url as string, qs);
       }),
-      redirect: redirect(routes),
+      redirect: logic(routes, ({ qs, params, path }) => {
+        const url = params === undefined ? path : generatePath(path as string, params);
+        const location = Urls.new(url as string, qs);
+        return new Response("", { status: 302, headers: { Location: location } });
+      }),
       useRouteParams: createHook(routes),
       actions:
         <Args extends FetchArgs>(methods: Partial<Record<Methods, ActionByMethod<Args, Props>>>) =>
@@ -110,6 +107,7 @@ export namespace Router {
                 })
               );
               return {
+                id: route.name,
                 path: route.path,
                 element: <Component />,
                 errorElement: <Error />,

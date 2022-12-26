@@ -1,11 +1,19 @@
-/** @type {import('tailwindcss').Config} */
+const plugin = require("tailwindcss/plugin");
+
+/** @type {import("tailwindcss").Config} */
 module.exports = {
+  darkMode: "class",
   content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    "./pages/**/*.{jsx,tsx,html,md,mdx}",
+    "./src/**/*.{jsx,tsx,html,md,mdx}",
+    "./src/components/**/*.{jsx,tsx,html,md,mdx}",
+    "../../packages/lego/src/*.{jsx,tsx,html,md,mdx}",
+    "../../packages/lego/src/**/*.{jsx,tsx,html,md,mdx}",
+    "../../packages/markdown/src/**/*.{jsx,tsx,html,md,mdx}"
   ],
-  theme: {
-    extend: {},
-  },
-  plugins: [],
-}
+  plugins: [
+    plugin(function({ addVariant }) {
+      addVariant("link", ["&:hover", "&:focus"]);
+    })
+  ]
+};
