@@ -1,4 +1,4 @@
-import { Router } from "~/config/create-routes";
+import { Router } from "~/lib/create-routes";
 import { Form, json } from "react-router-dom";
 import { fetcher } from "~/config/client";
 import { Post, PostsResponse } from "~/pages/posts/types";

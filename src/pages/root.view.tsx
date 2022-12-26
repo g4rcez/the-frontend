@@ -1,4 +1,4 @@
-import { Router } from "~/config/create-routes";
+import { Router } from "~/lib/create-routes";
 import { Form, json, useLoaderData, useLocation } from "react-router-dom";
 import { Country } from "~/domain/country";
 import { fetcher } from "~/config/client";
@@ -8,7 +8,7 @@ import { Is } from "~/lib/is";
 
 type State = { items: Country[] };
 
-const RootView: Router.Component<{}> = () => {
+const RootView: Router.Component = () => {
   const data = useLoaderData() as State;
   const href = useLocation();
 
@@ -50,7 +50,9 @@ RootView.loader = async ({ request, params }) => {
 RootView.action = async ({ request }) => {
   const form = await request.formData();
   const data = Object.assign({ countries: JSON.parse(form.get("state")?.toString() ?? "") }, Object.fromEntries(form));
-  return router.redirect(`${data.path}?index=${data.name}` as any);
+  return router.redirect("/", {
+    qs: { index: data.index.toString() },
+  });
 };
 
 export default RootView;

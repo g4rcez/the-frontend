@@ -25,24 +25,19 @@ const parse = (a: any) => {
 
 const entries = z.array(z.tuple([z.string(), z.any()]));
 
-const formDataRemap = validate(
+export const anyJson = validate(
   z
     .any()
-    .transform((x) => [...x])
-    .refine((x) => entries.safeParse(x).success)
+    .transform((val) => [...val])
+    .refine((val): val is z.infer<typeof entries> => entries.safeParse(val).success)
     .transform(
-      (data): Record<string, any> =>
+      (object): Record<string, unknown | unknown[]> =>
         Array.from(
-          [...data].reduce<Map<string, any[]>>((map, [k, v]) => {
-            const vl = parse(v);
-            const hasK = map.has(k);
-            const value = hasK ? vl : [vl];
-            if (!hasK) return map.set(k, [value]);
-            map.get(k)!.push(value);
-            return map;
-          }, new Map<string, unknown[]>())
+          object
+            .reduce<Map<string, any[]>>((map, [k, v]) => (map.has(k) ? map.set(k, [...map.get(k)!, parse(v)]) : map.set(k, [parse(v)])), new Map())
+            .entries()
         ).reduce((acc, [key, value]) => setPath(acc, [key], value.length === 1 ? value[0] : value), {} as Record<string, unknown | unknown[]>)
     )
 );
 
-export const formDataToJson = async <T extends {}>(request: Request): Promise<T> => formDataRemap(await request.formData());
+export const formDataToJson = async <T extends {}>(request: Request): Promise<T> => anyJson(await request.formData());

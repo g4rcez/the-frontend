@@ -9,7 +9,7 @@ export namespace Router {
 
   type Param = Record<string, string>;
 
-  export type FetchArgs<Params extends Param | null = {}> = { request: Request; params: Params; context?: any };
+  type FetchArgs<Params extends Param | null = {}> = { request: Request; params: Params; context?: any };
 
   type UrlParams<T extends string> = string extends T
     ? Record<string, string>
@@ -19,9 +19,9 @@ export namespace Router {
     ? { [k in Param]: string }
     : null;
 
-  export type Component<T extends {} = {}, Route extends string = string, LoaderProps extends {} = {}> = ComponentType & {
-    loader?: <T extends Param>(args: FetchArgs<UrlParams<Route>>, props: LoaderProps) => Promise<Response | any>;
-    action?: <T extends Param>(args: FetchArgs<UrlParams<Route>>, props: LoaderProps) => Promise<Response | any>;
+  type Component<T extends {} = {}, Route extends string | {} = {}, LoaderProps extends {} = {}> = ComponentType & {
+    loader?: <T extends Param>(args: FetchArgs<Route extends string ? UrlParams<Route> : any>, props: LoaderProps) => Promise<Response | any>;
+    action?: <T extends Param>(args: FetchArgs<Route extends string ? UrlParams<Route> : any>, props: LoaderProps) => Promise<Response | any>;
     error?: FC;
   };
 
@@ -33,14 +33,12 @@ export namespace Router {
 
   type ExtractPaths<T extends Narrow<Route[]>> = NonNullable<{ [K in keyof T[number]]: T[number]["path"] }["path"]>;
 
-  const link =
-    <T extends Narrow<Route[]>>(_routes: T) =>
+  const logic =
+    <T extends Narrow<Route[]>, Fn extends (path: string, pieces: { qs?: object; params?: object }) => string>(_routes: T, fn: Fn) =>
     <Path extends ExtractPaths<T>, QS extends Record<string, any>, Params extends UrlParams<Path>>(
       ...[path, pieces]: Params extends null ? [path: Path, pieces?: { qs?: QS; params?: never }] : [path: Path, params: { qs?: QS; params: Params }]
-    ) => {
-      const url = pieces?.params === undefined ? path : generatePath(path, pieces.params as never);
-      return Urls.new(url, pieces?.qs);
-    };
+    ) =>
+      fn(path, pieces as any);
 
   const redirect =
     <T extends Narrow<Route[]>>(_routes: T) =>
@@ -72,7 +70,10 @@ export namespace Router {
   export const create = <T extends Route[], Props extends {} = {}>(routes: Narrow<T>, props: Props, Layout: FC<PropsWithChildren>, NotFound: FC) => {
     return {
       routes,
-      link: link(routes),
+      link: logic(routes, ([path, pieces]) => {
+        const url = pieces?.params === undefined ? path : generatePath(path, pieces.params as never);
+        return Urls.new(url, pieces?.qs);
+      }),
       redirect: redirect(routes),
       useRouteParams: createHook(routes),
       actions:
