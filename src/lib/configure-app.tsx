@@ -38,10 +38,19 @@ export namespace App {
       _routes: T,
       fn: Fn
     ) =>
-    <Path extends ExtractPaths<T>, QS extends QueryString, Params extends UrlParams<Path>>(
-      ...[path, pieces]: Params extends null ? [path: Path, pieces?: { qs?: QS; params?: never }] : [path: Path, params: { qs?: QS; params: Params }]
+    <
+      Path extends ExtractPaths<T>,
+      QS extends UrlParams<Path> extends null ? QueryString : UrlParams<Path>,
+      Params extends UrlParams<Path> extends null ? undefined : UrlParams<Path>
+    >(
+      ...a: Params extends undefined ? [path: Path, qs?: QS] : [path: Path, params: Params, qs?: QueryString]
     ): ReturnType<Fn> =>
-      fn({ path, ...pieces }) as any;
+      a[0].includes("/:")
+        ? (fn({ path: a[0], qs: a[2], params: a[1] as any }) as any)
+        : (fn({
+            path: a[0],
+            qs: a[1] as any,
+          }) as any);
 
   const createHook =
     <T extends Narrow<Route[]>>(_routes: T) =>
@@ -60,64 +69,62 @@ export namespace App {
 
   type ActionByMethod<Args extends FetchArgs, Props extends {}> = (args: Args, props: Props) => Promise<Response | any>;
 
-  export const create = <T extends Route[], Props extends {} = {}>(routes: Narrow<T>, props: Props, Layout: FC<PropsWithChildren>, NotFound: FC) => {
-    return {
-      routes,
-      link: logic(routes, ({ params, path, qs }) => {
-        const url = params === undefined ? path : generatePath(path as string, params as never);
-        return Urls.new(url as string, qs);
-      }),
-      redirect: logic(routes, ({ qs, params, path }) => {
-        const url = params === undefined ? path : generatePath(path as string, params);
-        const location = Urls.new(url as string, qs);
-        return new Response("", { status: 302, headers: { Location: location } });
-      }),
-      useRouteParams: createHook(routes),
-      actions:
-        <Args extends FetchArgs>(methods: Partial<Record<Methods, ActionByMethod<Args, Props>>>) =>
-        async (args: Args) => {
-          const method = args.request.method.toLowerCase();
-          if (Is.keyof(method, methods)) return methods[method]?.(args, props);
-          return null;
-        },
-      config: createBrowserRouter([
-        {
-          path: "/",
-          element: (
-            <Layout>
-              <Fragment>
-                <Outlet />
-                <ScrollRestoration />
-              </Fragment>
-            </Layout>
-          ),
-          children: routes
-            .map((route): RouteObject => {
-              const Component = lazy(route.controller);
-              const Error = lazy(() =>
-                route.controller().then((x) => {
-                  const E = x.default.error ?? Fragment;
-                  return {
-                    default: () => (
-                      <Fragment>
-                        <E />
-                      </Fragment>
-                    ),
-                  };
-                })
-              );
-              return {
-                id: route.name,
-                path: route.path,
-                element: <Component />,
-                errorElement: <Error />,
-                action: createRouteFunction("action", route, props),
-                loader: createRouteFunction("loader", route, props),
-              };
-            })
-            .concat({ path: "*", element: <NotFound /> }),
-        },
-      ]),
-    };
-  };
+  export const create = <T extends Route[], Props extends {} = {}>(routes: Narrow<T>, props: Props, Layout: FC<PropsWithChildren>, NotFound: FC) => ({
+    routes,
+    link: logic(routes, ({ params, path, qs }) => {
+      const url = params === undefined ? path : generatePath(path as string, params as never);
+      return Urls.new(url as string, qs);
+    }),
+    redirect: logic(routes, ({ qs, params, path }) => {
+      const url = params === undefined ? path : generatePath(path as string, params);
+      const location = Urls.new(url as string, qs);
+      return new Response("", { status: 302, headers: { Location: location } });
+    }),
+    useRouteParams: createHook(routes),
+    actions:
+      <Args extends FetchArgs>(methods: Partial<Record<Methods, ActionByMethod<Args, Props>>>) =>
+      async (args: Args) => {
+        const method = args.request.method.toLowerCase();
+        if (Is.keyof(method, methods)) return methods[method]?.(args, props);
+        return null;
+      },
+    config: createBrowserRouter([
+      {
+        path: "/",
+        element: (
+          <Layout>
+            <Fragment>
+              <Outlet />
+              <ScrollRestoration />
+            </Fragment>
+          </Layout>
+        ),
+        children: routes
+          .map((route): RouteObject => {
+            const Component = lazy(route.controller);
+            const Error = lazy(() =>
+              route.controller().then((x) => {
+                const E = x.default.error ?? Fragment;
+                return {
+                  default: () => (
+                    <Fragment>
+                      <E />
+                    </Fragment>
+                  ),
+                };
+              })
+            );
+            return {
+              id: route.name,
+              path: route.path,
+              element: <Component />,
+              errorElement: <Error />,
+              action: createRouteFunction("action", route, props),
+              loader: createRouteFunction("loader", route, props),
+            };
+          })
+          .concat({ path: "*", element: <NotFound /> }),
+      },
+    ]),
+  });
 }

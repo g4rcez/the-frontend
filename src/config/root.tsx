@@ -1,8 +1,6 @@
 import { App } from "~/lib/configure-app";
 import React from "react";
 import { Layout } from "~/components/layout";
-import { client } from "~/config/client";
-import { Narrow } from "ts-toolbelt/out/Function/Narrow";
 
 const NotFoundRoute = () => <h2 className="text-6xl font-extrabold">Not Found</h2>;
 
