@@ -27,7 +27,7 @@ const options = [
 export default function RootView() {
   return (
     <div className="flex gap-x-8">
-      <Select options={options} />
+      <Select placeholder="Select a fruit" options={options} />
       <button onClick={() => (count.value += 1)}>{count as any}</button>
       <Btn />
       <Link className="hover:text-blue-400 transition-colors duration-300 active:text-blue-400 underline" to={app.link("/posts")}>

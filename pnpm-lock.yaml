@@ -4,6 +4,7 @@ specifiers:
   '@floating-ui/react': 0.18.0
   '@floating-ui/react-dom': 1.2.1
   '@preact/signals-react': 1.2.2
+  '@radix-ui/react-icons': 1.1.1
   '@tanstack/react-query': 4.20.4
   '@types/fuzzy-search': 2.1.2
   '@types/react': ^18.0.26
@@ -29,6 +30,7 @@ dependencies:
   '@floating-ui/react': 0.18.0_ib3m5ricvtkl2cll7qpr2f6lvq
   '@floating-ui/react-dom': 1.2.1_biqbaboplfbrettd7655fr4n2y
   '@preact/signals-react': 1.2.2_react@18.2.0
+  '@radix-ui/react-icons': 1.1.1_react@18.2.0
   '@tanstack/react-query': 4.20.4_biqbaboplfbrettd7655fr4n2y
   fuzzy-search: 3.2.1
   query-string: 8.1.0
@@ -585,6 +587,14 @@ packages:
       '@preact/signals-core': 1.2.3
       react: 18.2.0
       use-sync-external-store: 1.2.0_react@18.2.0
+    dev: false
+
+  /@radix-ui/react-icons/1.1.1_react@18.2.0:
+    resolution: {integrity: sha512-xc3wQC59rsFylVbSusQCrrM+6695ppF730Q6yqzhRdqDcRNWIm2R6ngpzBoSOQMcwnq4p805F+Gr7xo4fmtN1A==}
+    peerDependencies:
+      react: ^16.x || ^17.x || ^18.x
+    dependencies:
+      react: 18.2.0
     dev: false
 
   /@remix-run/router/1.2.0:
