@@ -11,21 +11,35 @@ import {
   useRole,
   useTransitionStyles,
 } from "@floating-ui/react";
-import "./select.css";
 import { Option } from "~/components/select/options";
 import Fuzzy from "fuzzy-search";
+import { usePrevious } from "~/hooks/use-previous";
 
 type SelectProps = Omit<React.HTMLProps<HTMLInputElement>, "value"> & {
   options: Option[];
   value?: string;
 };
 
+const transitionStyles = {
+  duration: 250,
+  initial: { transform: "scaleY(0)", opacity: 0.2 },
+  open: { transform: "scaleY(1)", opacity: 1 },
+  close: { transform: "scaleY(0)", opacity: 0 },
+} as const;
+
+const fuzzyOptions = { caseSensitive: false, sort: false };
+
+const emptyRef: any[] = [];
+
 export function Select({ options, ...props }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [shadow, setShadow] = useState("");
-  const [index, setIndex] = useState<number | null>(null);
   const [value, setValue] = useState(props.value ?? props.defaultValue ?? "");
-  const listRef = useRef<Array<HTMLElement | null>>([]);
+  const [index, setIndex] = useState<number | null>(null);
+  const listRef = useRef<Array<HTMLElement | null>>(emptyRef);
+  const previousIndex = usePrevious(index);
+
+  const list = new Fuzzy(options, ["value"], fuzzyOptions).search(shadow);
 
   const { x, y, strategy, refs, context } = useFloating<HTMLInputElement>({
     whileElementsMounted: autoUpdate,
@@ -44,44 +58,41 @@ export function Select({ options, ...props }: SelectProps) {
     ],
   });
 
-  const transitions = useTransitionStyles(context, {
-    duration: 250,
-    initial: { transform: "scaleY(0)", opacity: 0.6 },
-    open: { transform: "scaley(1)", opacity: 1 },
-    close: { transform: "scaleY(0)", opacity: 0 },
-  });
+  const transitions = useTransitionStyles(context, transitionStyles);
 
   const { getReferenceProps, getFloatingProps, getItemProps } = useInteractions([
     useRole(context, { role: "listbox" }),
     useDismiss(context),
     useListNavigation(context, {
-      listRef,
       activeIndex: index,
-      onNavigate: setIndex,
-      virtual: true,
-      loop: true,
       allowEscape: true,
-      scrollItemIntoView: true,
       focusItemOnOpen: "auto",
+      listRef,
+      loop: true,
+      openOnArrowKeyDown: true,
+      scrollItemIntoView: true,
+      selectedIndex: index,
+      virtual: true,
+      onNavigate: (n) => {
+        const lastIndex = list.length - 1;
+        if (n === null && previousIndex === 0) return setIndex(lastIndex);
+        if (n === null && previousIndex === lastIndex) return setIndex(0);
+        const i = n ?? previousIndex ?? null;
+        return i === null ? undefined : setIndex(i);
+      },
     }),
   ]);
 
   const onChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
     setShadow(value);
-    if (value) {
-      setOpen(true);
-      setIndex(0);
-    }
-    props.onChange?.(event);
+    if (!open && value === "") return setOpen(true);
+    return value ? setOpen(true) : props.onChange?.(event);
   };
 
-  const list = new Fuzzy(options, ["value"], { caseSensitive: false }).search(shadow);
-
   const onSelect = (val: string) => {
-    setOpen(false);
     setValue(val);
-    setIndex(null);
+    setOpen(false);
     setShadow("");
   };
 
@@ -96,17 +107,19 @@ export function Select({ options, ...props }: SelectProps) {
         {...getReferenceProps({
           ...props,
           onChange,
-          onClick(e: React.MouseEvent<HTMLInputElement>) {
-            onFocus();
-            e.currentTarget.focus();
-          },
           onFocus,
-          onKeyDown(event) {
-            if (event.key === "Enter" && index !== null && list[index]) {
-              onSelect(list[index].value);
+          ref: refs.setReference,
+          onClick: (e: React.MouseEvent<HTMLInputElement>) => e.currentTarget.focus(),
+          onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+            if (event.key === "Escape") {
+              event.currentTarget.blur();
+              return setOpen(false);
+            }
+            if (event.key === "Enter") {
+              if (index !== null && list[index]) return onSelect(list[index].value);
+              if (list.length === 1) return onSelect(list[0].value);
             }
           },
-          ref: refs.setReference,
         })}
         value={open ? shadow : value}
         aria-autocomplete="list"
@@ -135,24 +148,24 @@ export function Select({ options, ...props }: SelectProps) {
         )}
       </div>
       <FloatingPortal preserveTabOrder>
-        <FloatingFocusManager returnFocus context={context} initialFocus={-1} visuallyHiddenDismiss>
+        <FloatingFocusManager closeOnFocusOut guards returnFocus context={context} initialFocus={-1} visuallyHiddenDismiss>
           <ul
             {...getFloatingProps({
               ref: refs.setFloating,
               style: { position: strategy, left: x ?? 0, top: y ?? 0, ...transitions.styles },
             })}
-            className="bg-slate-200 text-zinc-700 overflow-auto origin-[top_center] overflow-y-auto"
+            className="bg-zinc-800 text-zinc-200 list-none p-0 m-0 rounded-b-lg shadow-2xl overflow-auto origin-[top_center] overflow-y-auto"
           >
             {list.map((item, i) => (
               <Option
                 {...getItemProps({
-                  key: item.value,
-                  ref: (node) => (listRef.current[i] = node),
+                  key: `${item.value}-option`,
                   onClick: () => onSelect(item.value),
+                  ref: (node) => (listRef.current[i] = node),
                 })}
                 option={item}
-                active={value === item.value}
                 selected={index === i}
+                active={value === item.value}
               />
             ))}
           </ul>

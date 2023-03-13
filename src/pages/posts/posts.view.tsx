@@ -3,7 +3,7 @@ import { Form, json } from "react-router-dom";
 import { fetcher } from "~/config/client";
 import { Post, PostsResponse } from "~/pages/posts/types";
 import { Fragment, useEffect } from "react";
-import { useFormState } from "~/lib/useFormState";
+import { useFormState } from "~/lib/use-form-state";
 import { Urls } from "~/lib/urls";
 
 const PostsView: App.Component = () => {

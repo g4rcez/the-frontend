@@ -7,7 +7,7 @@ import { ErrorComponent, NotFoundError, RouteError } from "~/lib/route-errors";
 import { app } from "~/config/root";
 import { formDataToJson } from "~/lib/form";
 import { Fragment } from "react";
-import { useFormState } from "~/lib/useFormState";
+import { useFormState } from "~/lib/use-form-state";
 
 const PostsView: App.Component<{}, "/posts/:id"> = () => {
   const { fetcher, loading, state, ref } = useFormState<Post | null>() ?? null;

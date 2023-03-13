@@ -1,6 +1,0 @@
-[role="listbox"] ul {
-    @apply bg-white text-black;
-    list-style-type: none;
-    padding: 0;
-    margin: 0;
-}

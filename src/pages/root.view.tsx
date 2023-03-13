@@ -1,12 +1,12 @@
 import { Link } from "react-router-dom";
 import { app } from "~/config/root";
-import { signal } from "@preact/signals-react";
 import { Select } from "~/components/select/select";
-
-const count = signal(0);
+import { createColumns, Table } from "~/components/table";
+import { createSignal, useSignal } from "~/lib/create-signal";
 
 const Btn = () => {
-  return <button onClick={() => (count.value += 1)}>{count as any}</button>;
+  const [c, setC] = useSignal(0);
+  return <button onClick={() => setC((c) => c + 1)}>{c}</button>;
 };
 
 const options = [
@@ -24,18 +24,35 @@ const options = [
   "Beans",
 ].map((value) => ({ value }));
 
+const [count, setCount] = createSignal(0);
+
+type State = {
+  id: string;
+  date: Date;
+};
+
+const cols = createColumns<State>((add) => {
+  add("id", "ID", { Render: (props) => props.value });
+  add("date", "Date", { Render: (props) => props.value.toISOString() });
+});
+
+const rows = Array.from({ length: 5000 }).map((_, i): State => ({ id: i.toString(), date: new Date() }));
+
 export default function RootView() {
   return (
-    <div className="flex gap-x-8">
-      <Select placeholder="Select a fruit" options={options} />
-      <button onClick={() => (count.value += 1)}>{count as any}</button>
-      <Btn />
-      <Link className="hover:text-blue-400 transition-colors duration-300 active:text-blue-400 underline" to={app.link("/posts")}>
-        Posts
-      </Link>
-      <Link className="hover:text-blue-400 transition-colors duration-300 active:text-blue-400 underline" to={app.link("/posts/:id", { id: "1" })}>
-        Post 1
-      </Link>
+    <div className="w-full">
+      <div className="flex gap-x-8">
+        <Select placeholder="Select a fruit" options={options} />
+        <button onClick={() => setCount((c) => c + 1)}>{count}</button>
+        <Btn />
+        <Link className="hover:text-blue-400 transition-colors duration-300 active:text-blue-400 underline" to={app.link("/posts")}>
+          Posts
+        </Link>
+        <Link className="hover:text-blue-400 transition-colors duration-300 active:text-blue-400 underline" to={app.link("/posts/:id", { id: "1" })}>
+          Post 1
+        </Link>
+      </div>
+      <Table rows={rows} cols={cols} id="table" />
     </div>
   );
 }
