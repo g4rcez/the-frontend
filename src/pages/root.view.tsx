@@ -28,15 +28,23 @@ const [count, setCount] = createSignal(0);
 
 type State = {
   id: string;
+  amount: number;
   date: Date;
 };
 
 const cols = createColumns<State>((add) => {
-  add("id", "ID", { Render: (props) => props.value });
+  add("id", "ID", { Render: (props) => props.value, width: "50px", className: "bg-white text-black" });
+  add("amount", "Amount");
   add("date", "Date", { Render: (props) => props.value.toISOString() });
 });
 
-const rows = Array.from({ length: 5000 }).map((_, i): State => ({ id: i.toString(), date: new Date() }));
+const rows = Array.from({ length: 5000 }).map(
+  (_, i): State => ({
+    date: new Date(),
+    id: (i + 1).toString().padStart(4, "0"),
+    amount: Math.ceil(Math.random() * (i + 1) * 100),
+  })
+);
 
 export default function RootView() {
   return (
